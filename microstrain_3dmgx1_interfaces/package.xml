@@ -1,0 +1,20 @@
+<?xml version="1.0"?>
+<?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
+<package format="3">
+  <name>microstrain_3dmgx1_interfaces</name>
+  <version>2.0.0</version>
+  <maintainer email="jage@uma.es">Juan Alberto García Esteban</maintainer>
+  <description>The node interfaces for IMUs compatible the microstrain 3DM-GX1</description>
+  <license>MIT License</license>
+
+  <url type="website">https://github.com/jage92/microstrain_3dmgx1_imu</url>
+  <url type="bugtracker">https://github.com/jage92/microstrain_3dmgx1_imu/issues</url>
+  <url type="repository">https://github.com/jage92/microstrain_3dmgx1_imu</url>
+
+  <buildtool_depend>rosidl_default_generators</buildtool_depend>
+  <member_of_group>rosidl_interface_packages</member_of_group>
+
+  <export>
+    <build_type>ament_cmake</build_type>
+  </export>
+</package>

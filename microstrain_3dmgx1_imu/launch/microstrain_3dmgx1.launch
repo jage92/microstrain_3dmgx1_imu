@@ -1,0 +1,27 @@
+<launch>
+<node pkg="microstrain_3dmgx1_imu" exec="imu_node_gx1" name="microstrain_3dmgx1_node" output="screen">
+     <param name="time_offset" value="0.0"/>
+     <param name="port" value="/dev/ttyUSB0"/>
+     <param name="frame_id" value="imu_gx1"/>
+     <param name="stab_frame_id" value="stab_imu_gx1"/>
+     <param name="base_frame" value="base_gx1"/> <!-- NED or ENU depending of use_enu_frame flag -->
+     <param name="auto_capture_bias" value="true"/>
+     <param name="publish_tf" value="true"/>
+     <param name="publish_stab_tf" value="true"/>
+     <param name="use_enu_frame" value="false"/> <!-- ENU NOT CORRESPOND WITH THE PRINTED REFERENCE FRAME IN THE IMU -->
+     <param name="magnitudeZ" value="333"/> <!-- If calibrate is 2D type -->
+     <param name="poll_mode" value="false"/> <!-- True: Pool False: Continuos Mode-->
+     <param name="raw_sensor" value="true"/>
+     <param name="stab_mag_accel_angrate" value="true"/>
+     <param name="instant_mag_accel_angrate" value="true"/>
+     <param name="stab_quat_orient" value="true"/>
+     <param name="instant_quat_orient" value="true"/>
+     <param name="stab_orient_mag_accel_angrate" value="true"/>
+     <param name="instant_orient_mag_accel_angrate" value="true"/> <!-- This case is slower because it is needed 2 readings -->
+     <param name="stab_euler_angles" value="true"/>
+     <param name="instant_euler_angles" value="true"/>
+     <param from="$(find-pkg-share microstrain_3dmgx1_imu)/params/params.yaml"/>
+    <!--<node pkg="tf" exec="static_transform_publisher" name="tf_broadcaster" args="1 1 0 1.570796327 0 3.1416 world base 100" />--> <!-- FOR NED-->
+    <!-- <node pkg="tf" exec="static_transform_publisher" name="tf_broadcaster" args="1 1 0 -1.570796327 0 0 world base 100" /> --> <!-- FOR ENU-->
+  </node>
+</launch>
