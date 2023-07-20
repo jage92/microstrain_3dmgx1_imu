@@ -126,7 +126,7 @@ namespace microstrain_3dmgx1_imu
     //! The number of ticks the initial offset is off by
     uint32_t offset_ticks;
 
-    uint32_t fixed_offset;
+    uint64_t fixed_offset;
 
     //! The time at which the imu was started
     unsigned long long start_time;
@@ -260,6 +260,7 @@ public:
     void initTime(double fix_off);
     void configureCalculationCycle();
 
+    void setFixed_offset(double newFixed_offset);
   };
 
 }

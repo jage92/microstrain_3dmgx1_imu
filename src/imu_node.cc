@@ -306,6 +306,7 @@ public:
 
     if(!private_node_handle_.getParam("instant_euler_angles", instant_euler_angles))
       instant_euler_angles = false;
+
     if(instant_euler_angles) {
       cmd_v.push_back(microstrain_3dmgx1_imu::IMU::CMD_INSTANT_EULER); //
       euler_pub = private_node_handle_.advertise<microstrain_3dmgx1_imu::EulerStamped>("euler", 1);
@@ -324,8 +325,8 @@ public:
 
     if(!private_node_handle_.getParam("stab_orientation_cov",stab_orientation_cov))
       stab_orientation_cov =  {0.0020,  0.0,    0.0,
-                          0.0,    1.4908e-6,  0.0,
-                          0.0,    0.0,    8.4248e-4};
+                               0.0,    1.4908e-6,  0.0,
+                               0.0,    0.0,    8.4248e-4};
 
     if(!private_node_handle_.getParam("ang_vel_cov",ang_vel_cov))
       ang_vel_cov =  {1.01850738002291e-05, 0.0,    0.0,
@@ -344,8 +345,8 @@ public:
 
     if(!private_node_handle_.getParam("stab_lin_acc_cov_no_grab",stab_lin_acc_cov_no_grab))
       stab_lin_acc_cov_no_grab =  {0.000210987265734, 0.0,    0.0,
-                              0.0,    0.000234988106838, 0.0,
-                              0.0,    0.0,    3.1886763565377e-05};
+                                   0.0,    0.000234988106838, 0.0,
+                                   0.0,    0.0,    3.1886763565377e-05};
 
     if(!private_node_handle_.getParam("mag_cov",mag_cov))
       mag_cov =  {1.16666432794325e-05, 0.0,    0.0,
@@ -376,7 +377,7 @@ public:
     }
 
     if(slow)
-      desired_freq_ = 34.0;
+      desired_freq_ = (31.0 + (cmd_v.size()-1)*50.0)/cmd_v.size(); //Is a mean of the frecuency of each read
     else if(cmd_v.size()>1)
       desired_freq_ = 50.0;
     else
@@ -417,7 +418,7 @@ public:
     diagnostic_.add( "Calibration Status", this, &ImuNode::calibrationStatus);
 
     wallTimer = private_node_handle_.createWallTimer(ros::WallDuration(0),&ImuNode::wallTimerCallback,this,false,false);
-    calibrateTimer = private_node_handle_.createWallTimer(ros::WallDuration(0),&::ImuNode::calibrateTimerCallback,this,false,false);
+    calibrateTimer = private_node_handle_.createWallTimer(ros::WallDuration(0),&ImuNode::calibrateTimerCallback,this,false,false);
 
     start();
   }
@@ -532,7 +533,7 @@ public:
           capture_bias_requested_ = false;
           auto_capture_bias = false; // No need to do this each time we reopen the device.
         }
-        else
+        else if(!calibrated)
         {
           ROS_INFO("Not capturing the bias of the IMU sensor. Use the captureBias service to capture it before use.");
         }
@@ -595,8 +596,7 @@ public:
       {
         if(imu.getContinuous())
           imu.stopContinuous();
-        else
-          wallTimer.stop();
+        wallTimer.stop();
         running = false;
         imu.closePort();
       } catch (microstrain_3dmgx1_imu::Exception& e) {
@@ -615,10 +615,23 @@ public:
    */
   void interruptionTest(diagnostic_updater::DiagnosticStatusWrapper& status)
   {
-    if (imu_data_pub_.getNumSubscribers() == 0 )
-      status.summary(diagnostic_msgs::DiagnosticStatus::OK, "No operation interrupted.");
+
+    if ((imu_data_pub_!=nullptr && imu_data_pub_.getNumSubscribers() > 0) ||
+        (imu_data_no_grab_pub_!=nullptr && imu_data_no_grab_pub_.getNumSubscribers() > 0) ||
+        (imu_stab_data_no_grab_pub_!=nullptr && imu_stab_data_no_grab_pub_.getNumSubscribers() > 0) ||
+        (imu_stab_data_pub_!=nullptr && imu_stab_data_pub_.getNumSubscribers() > 0) ||
+        (imu_data_raw_pub_!=nullptr && imu_data_raw_pub_.getNumSubscribers() > 0) ||
+        (mag_pub!=nullptr && mag_pub.getNumSubscribers() > 0) ||
+        (raw_mag_pub!=nullptr && raw_mag_pub.getNumSubscribers() > 0) ||
+        (orientation_pub!=nullptr && orientation_pub.getNumSubscribers() > 0) ||
+        (stab_orientation_pub!=nullptr && stab_orientation_pub.getNumSubscribers() > 0 ) ||
+        (stab_mag_pub!=nullptr && stab_mag_pub.getNumSubscribers() > 0 ) ||
+        (stab_euler_pub!=nullptr && stab_euler_pub.getNumSubscribers() > 0) ||
+        (euler_pub!=nullptr && euler_pub.getNumSubscribers() > 0))
+
+      status.summary(diagnostic_msgs::DiagnosticStatus::WARN, "Interruption Text: There were active subscribers.");
     else
-      status.summary(diagnostic_msgs::DiagnosticStatus::WARN, "There were active subscribers.  Running of self test interrupted operations.");
+      status.summary(diagnostic_msgs::DiagnosticStatus::OK, "No operation interrupted.");
   }
 
   /**
@@ -986,9 +999,9 @@ public:
         if(!capturingBias) {
           imu_data_pub_.publish(imuData);
           mag_pub.publish(magData);
-//          m.setRotation(q);
-//          m.getRPY(roll,pitch,yaw);
-//          ROS_INFO("Orientation 1: %lf %lf %lf",roll*180/M_PI,pitch*180/M_PI,yaw*180/M_PI);
+          //          m.setRotation(q);
+          //          m.getRPY(roll,pitch,yaw);
+          //          ROS_INFO("Orientation 1: %lf %lf %lf",roll*180/M_PI,pitch*180/M_PI,yaw*180/M_PI);
         }
 
         break;
@@ -1002,9 +1015,9 @@ public:
         if(!capturingBias) {
           orientation_pub.publish(quaternion_msg);
           localPublishTF = true;
-//          m.setRotation(q);
-//          m.getRPY(roll,pitch,yaw);
-//          ROS_INFO("Orientation 2: %lf %lf %lf",roll*180/M_PI,pitch*180/M_PI,yaw*180/M_PI);
+          //          m.setRotation(q);
+          //          m.getRPY(roll,pitch,yaw);
+          //          ROS_INFO("Orientation 2: %lf %lf %lf",roll*180/M_PI,pitch*180/M_PI,yaw*180/M_PI);
 
         }
         break;
@@ -1019,9 +1032,9 @@ public:
           stab_orientation_pub.publish(quaternion_msg);
           stab_localPublishTF = true;
 
-//          m.setRotation(q);
-//          m.getRPY(roll,pitch,yaw);
-//          ROS_INFO("Orientation 2: %lf %lf %lf",roll*180/M_PI,pitch*180/M_PI,yaw*180/M_PI);
+          //          m.setRotation(q);
+          //          m.getRPY(roll,pitch,yaw);
+          //          ROS_INFO("Orientation 2: %lf %lf %lf",roll*180/M_PI,pitch*180/M_PI,yaw*180/M_PI);
         }
         break;
       case microstrain_3dmgx1_imu::IMU::CMD_GYRO_QUAT_VECTOR:
@@ -1038,9 +1051,9 @@ public:
           stab_mag_pub.publish(magData);
           stab_localPublishTF = true;
 
-//          m.setRotation(q);
-//          m.getRPY(roll,pitch,yaw);
-//          ROS_INFO("Orientation 3: %lf %lf %lf",roll*180/M_PI,pitch*180/M_PI,yaw*180/M_PI);
+          //          m.setRotation(q);
+          //          m.getRPY(roll,pitch,yaw);
+          //          ROS_INFO("Orientation 3: %lf %lf %lf",roll*180/M_PI,pitch*180/M_PI,yaw*180/M_PI);
         }
 
         break;
@@ -1060,9 +1073,9 @@ public:
           mag_pub.publish(magData);
           localPublishTF = true;
 
-//          m.setRotation(q);
-//          m.getRPY(roll,pitch,yaw);
-//          ROS_INFO("Orientation 3: %lf %lf %lf",roll*180/M_PI,pitch*180/M_PI,yaw*180/M_PI);
+          //          m.setRotation(q);
+          //          m.getRPY(roll,pitch,yaw);
+          //          ROS_INFO("Orientation 3: %lf %lf %lf",roll*180/M_PI,pitch*180/M_PI,yaw*180/M_PI);
 
         }
 
@@ -1094,11 +1107,11 @@ public:
         if(!capturingBias) {
           euler_pub.publish(eulerMsg);
           localPublishTF = true;
-//          ROS_INFO("Orientation 4a: %lf %lf %lf",roll,pitch,yaw);
+          //          ROS_INFO("Orientation 4a: %lf %lf %lf",roll,pitch,yaw);
 
-//          m.setRotation(q);
-//          m.getRPY(roll,pitch,yaw);
-//          ROS_INFO("Orientation 4b: %lf %lf %lf",roll*180/M_PI,pitch*180/M_PI,yaw*180/M_PI);
+          //          m.setRotation(q);
+          //          m.getRPY(roll,pitch,yaw);
+          //          ROS_INFO("Orientation 4b: %lf %lf %lf",roll*180/M_PI,pitch*180/M_PI,yaw*180/M_PI);
         }
 
         break;
@@ -1119,11 +1132,11 @@ public:
           stab_euler_pub.publish(eulerMsg);
           stab_localPublishTF = true;
 
-//          ROS_INFO("Orientation 4a: %lf %lf %lf",roll,pitch,yaw);
+          //          ROS_INFO("Orientation 4a: %lf %lf %lf",roll,pitch,yaw);
 
-//          m.setRotation(q);
-//          m.getRPY(roll,pitch,yaw);
-//          ROS_INFO("Orientation 4b: %lf %lf %lf",roll*180/M_PI,pitch*180/M_PI,yaw*180/M_PI);
+          //          m.setRotation(q);
+          //          m.getRPY(roll,pitch,yaw);
+          //          ROS_INFO("Orientation 4b: %lf %lf %lf",roll*180/M_PI,pitch*180/M_PI,yaw*180/M_PI);
         }
         break;
       default:
@@ -1352,9 +1365,9 @@ public:
   }
 
   /**
-   * @brief calibrationStatus Check the status of the imu calibration
-   * @param status node status
-   */
+     * @brief calibrationStatus Check the status of the imu calibration
+     * @param status node status
+     */
   void calibrationStatus(diagnostic_updater::DiagnosticStatusWrapper& status)
   {
     if (calibrated)
@@ -1387,7 +1400,7 @@ public:
     ROS_INFO("Total IMU time offset is now %f.", offset_);
 
     // send changes to imu driver
-    //    imu.setFixedOffset(offset_);
+    imu.setFixed_offset(offset_);
 
     // write changes to param server
     private_node_handle_.setParam("time_offset", offset_);
@@ -1413,9 +1426,9 @@ public:
       ROS_INFO("Starting magnetometer calibration");
     }
     catch (microstrain_3dmgx1_imu::Exception& e) {
-          error_count_++;
-          ROS_ERROR("Exception thrown while calibrating IMU %s", e.what());
-          diagnostic_.broadcast(diagnostic_msgs::DiagnosticStatus::WARN,"Exception thrown while calibrating IMU" + string(e.what()));
+      error_count_++;
+      ROS_ERROR("Exception thrown while calibrating IMU %s", e.what());
+      diagnostic_.broadcast(diagnostic_msgs::DiagnosticStatus::WARN,"Exception thrown while calibrating IMU" + string(e.what()));
     }
     calibrateTimer.start();
     calibrationStarted = true;
@@ -1501,7 +1514,7 @@ public:
   }
 
   /**
-   * @brief captureBias Service to capture bias of the IMU
+   * @brief calculateBias Service to capture bias of the IMU
    * @param req Request object
    * @param resp Response object
    * @return True if the service is running correctly or false if not
@@ -1523,7 +1536,7 @@ public:
     try {
       if(imu.getContinuous())
         imu.stopContinuous();
-      }
+    }
     catch(microstrain_3dmgx1_imu::Exception& e) {
       error_count_++;
       ROS_ERROR("Problem stoping continous mode %s", e.what());
@@ -1619,7 +1632,7 @@ public:
     // Expects to be called with the IMU stopped.
     ROS_INFO("Obtaining biases.");
     diagnostic_.update();
-//    imu.captureGyroBias();
+    //    imu.captureGyroBias();
     
     //    ROS_INFO("gyro bias: %lf %lf %lf", bias_x_,bias_y_,bias_z_);
     start_time = ros::Time::now();

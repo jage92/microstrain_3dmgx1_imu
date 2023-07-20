@@ -84,5 +84,3 @@ or
 `rosservice call /self_test`
 
 with the node runnig. 
-
-NOTE: The wireless IMUs can saturate if the work rate is high. It possible to receive wrong data or to experiment delays. 
