@@ -225,7 +225,6 @@ uint64_t microstrain_3dmgx1_imu::IMU::extractTime(uint8_t* addr)
 
   uint64_t all_ticks = ((uint64_t)wraps << 32) - offset_ticks + ticks;
 
-  printf("%llu %lu\n",start_time,fixed_offset);
   return  start_time +  uint64_t((all_ticks * convertFactor)) + fixed_offset;
 }
 
@@ -812,7 +811,6 @@ bool microstrain_3dmgx1_imu::IMU::getContinuous() const
 void microstrain_3dmgx1_imu::IMU::setFixed_offset(double newFixed_offset)
 {
   fixed_offset = u_int64_t(newFixed_offset * 1e9);
-  printf("%lu %lf\n",fixed_offset,newFixed_offset);
 }
 
 
