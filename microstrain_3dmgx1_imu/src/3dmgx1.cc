@@ -808,9 +808,9 @@ bool microstrain_3dmgx1_imu::IMU::getContinuous() const
   return continuous;
 }
 
-void microstrain_3dmgx1_imu::IMU::setFixed_offset(uint32_t newFixed_offset)
+void microstrain_3dmgx1_imu::IMU::setFixed_offset(double newFixed_offset)
 {
-  fixed_offset = newFixed_offset;
+  fixed_offset = u_int64_t(newFixed_offset * 1e9);
 }
 
 

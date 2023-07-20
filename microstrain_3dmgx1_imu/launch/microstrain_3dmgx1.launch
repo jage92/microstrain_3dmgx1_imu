@@ -1,7 +1,7 @@
 <launch>
 <node pkg="microstrain_3dmgx1_imu" exec="imu_node_gx1" name="microstrain_3dmgx1_node" output="screen">
      <param name="time_offset" value="0.0"/>
-     <param name="port" value="/dev/ttyUSB0"/>
+     <param name="port" value="/dev/ttyUSB1"/>
      <param name="frame_id" value="imu_gx1"/>
      <param name="stab_frame_id" value="stab_imu_gx1"/>
      <param name="base_frame" value="base_gx1"/> <!-- NED or ENU depending of use_enu_frame flag -->
