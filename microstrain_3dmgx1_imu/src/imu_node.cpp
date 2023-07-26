@@ -56,7 +56,7 @@ public:
   string port; //! Serial port in which the IMU is connected
 
   std::vector<microstrain_3dmgx1_imu::IMU::cmd> cmd_v; //! List of commands that are being reading from de IMU
-  std::vector<microstrain_3dmgx1_imu::IMU::cmd> cmd_capture_bias; //! List of commands read to calibrate (calculate bias).
+  std::vector<microstrain_3dmgx1_imu::IMU::cmd> cmd_capture_bias; //! List of commands read to calculate bias.
 
   self_test::TestRunner self_test_; //! Object to test the IMU
   diagnostic_updater::Updater diagnostic_; //! Object that allows the IMU diagnostic
@@ -67,7 +67,7 @@ public:
   rclcpp::Publisher<sensor_msgs::msg::Imu>::SharedPtr imu_stab_data_pub_; //! Publisher of IMU stabilized data with the sensor complementary filter
   rclcpp::Publisher<sensor_msgs::msg::Imu>::SharedPtr imu_data_raw_pub_; //! Publisher of IMU raw data
   rclcpp::Service<microstrain_3dmgx1_interfaces::srv::AddOffset>::SharedPtr add_offset_serv_; //! Service to update the time offset
-  rclcpp::Service<std_srvs::srv::Empty>::SharedPtr capture_bias_serv_; //! Service to calibrate the IMU
+  rclcpp::Service<std_srvs::srv::Empty>::SharedPtr capture_bias_serv_; //! Service to capture the IMU bias
   rclcpp::Service<microstrain_3dmgx1_interfaces::srv::PublishTf>::SharedPtr publishTF_serv_; //! Service to activate or deactivate the publisher of TF
   rclcpp::Service<std_srvs::srv::Empty>::SharedPtr start_calibrate_serv; //! Service to start magnetometer calibration
   rclcpp::Service<microstrain_3dmgx1_interfaces::srv::StopCalibrate>::SharedPtr stop_calibrate_serv; //! Service to stop magnetometer calibration
@@ -101,7 +101,7 @@ public:
   
   double offset_; //! Time offset
 
-  double max_drift_rate_; //! Reference Drift Rate to check the quality of the calibration
+  double max_drift_rate_; //! Reference Drift Rate to check the quality of the bias capture
 
   double desired_freq_; //! Working frecuency of the IMU to pass to self_test
   std::unique_ptr<diagnostic_updater::FrequencyStatus> freq_diag_; //! Self_test object to monitoring the IMU diagnosis
@@ -512,7 +512,12 @@ public:
           capture_bias_requested_ = false;
           auto_capture_bias = false; // No need to do this each time we reopen the device.
         }
-        else if(!calibrated)
+        else
+        {
+          RCLCPP_INFO(this->get_logger(),"Not capturing bias of the IMU sensor.");
+        }
+
+        if(!calibrated)
         {
           RCLCPP_INFO(this->get_logger(),"Not calibrating the IMU sensor. Use the calibrate service to calibrate it before use.");
         }
@@ -531,7 +536,7 @@ public:
 
       } catch (microstrain_3dmgx1_imu::Exception& e) {
         error_count_++;
-        RCLCPP_INFO(this->get_logger(),"Exception thrown while starting IMU. This sometimes happens if you are not connected to an IMU or if another process is trying to access the IMU port. You may try 'lsof|grep %s' to see if other processes have the port open. %s", port.c_str(), e.what());
+        RCLCPP_ERROR(this->get_logger(),"Exception thrown while starting IMU. This sometimes happens if you are not connected to an IMU or if another process is trying to access the IMU port. You may try 'lsof|grep %s' to see if other processes have the port open. %s", port.c_str(), e.what());
         diagnostic_.broadcast(diagnostic_msgs::msg::DiagnosticStatus::ERROR, "Error opening IMU.");
       }
       intentos--;
@@ -1335,7 +1340,7 @@ public:
       status.summary(diagnostic_msgs::msg::DiagnosticStatus::OK, "Bias is capturing");
     }
     else
-      status.summary(diagnostic_msgs::msg::DiagnosticStatus::ERROR, "Bias is captured");
+      status.summary(diagnostic_msgs::msg::DiagnosticStatus::ERROR, "Bias is not captured");
   }
 
   /**
@@ -1350,7 +1355,6 @@ public:
       status.add("X offset", magOffset[X]);
       status.add("Y offset", magOffset[Y]);
       status.add("Z offset", magOffset[Z]);
-
     }
     else if(calibrationStarted) {
       status.summary(diagnostic_msgs::msg::DiagnosticStatus::OK, "Magnetometer is calibrating");
@@ -1400,9 +1404,9 @@ public:
       RCLCPP_INFO(this->get_logger(),"Starting magnetometer calibration");
     }
     catch (microstrain_3dmgx1_imu::Exception& e) {
-          error_count_++;
-          RCLCPP_ERROR(this->get_logger(),"Exception thrown while calibrating IMU %s", e.what());
-          diagnostic_.broadcast(diagnostic_msgs::msg::DiagnosticStatus::WARN,"Exception thrown while calibrating IMU" + string(e.what()));
+      error_count_++;
+      RCLCPP_ERROR(this->get_logger(),"Exception thrown while calibrating IMU %s", e.what());
+      diagnostic_.broadcast(diagnostic_msgs::msg::DiagnosticStatus::WARN,"Exception thrown while calibrating IMU" + string(e.what()));
     }
     calibrateTimer->reset();
     calibrationStarted = true;
@@ -1481,7 +1485,7 @@ public:
       return true;
     }
     else {
-      RCLCPP_ERROR(this->get_logger(),"Calibration is not started");
+      RCLCPP_WARN(this->get_logger(),"Calibration is not started");
       diagnostic_.broadcast(diagnostic_msgs::msg::DiagnosticStatus::WARN,"Calibration is not started");
       return false;
     }
@@ -1541,8 +1545,15 @@ public:
     else
       wallTimer->reset();
 
+    try{
     if(cmd_v.size() == 1 && !imu.getContinuous() && cmd_v[0] != microstrain_3dmgx1_imu::IMU::CMD_INSTANT_GYRO_QUAT_VECTOR)
       imu.setContinuous(cmd_v[0]);
+    }
+    catch(microstrain_3dmgx1_imu::Exception& e) {
+      error_count_++;
+      RCLCPP_ERROR(this->get_logger(),"Problem starting continous mode %s", e.what());
+      diagnostic_.broadcast(diagnostic_msgs::msg::DiagnosticStatus::WARN,"Problem starting continous mode " + string(e.what()));
+    }
 
     poll_mode=false;
     this->set_parameter(rclcpp::Parameter("poll_mode", poll_mode));
@@ -1577,6 +1588,7 @@ public:
       error_count_++;
       biasCaptured_ = false;
       RCLCPP_ERROR(this->get_logger(),"Exception thrown while caluting bias of the IMU %s", e.what());
+      diagnostic_.broadcast(diagnostic_msgs::msg::DiagnosticStatus::ERROR,"Exception thrown while capturing bias of the IMU " + string(e.what()));
       stop();
       if (old_running)
         start(); // Might throw, but we have nothing to lose... Needs restructuring.
@@ -1690,12 +1702,14 @@ public:
     // capture failed
     else{
       biasCaptured_ = false;
-      RCLCPP_INFO(this->get_logger(),"Imu: capture check failed: average angular drift = %f deg/sec, average stab angular drift = %f deg/sec, max drift rate %f deg/sec", average_rate*180/M_PI,stab_average_rate*180/M_PI, max_drift_rate_*180/M_PI);
+      RCLCPP_ERROR(this->get_logger(),"Imu: capture check failed: average angular drift = %f deg/sec, average stab angular drift = %f deg/sec, max drift rate %f deg/sec", average_rate*180/M_PI,stab_average_rate*180/M_PI, max_drift_rate_*180/M_PI);
+      diagnostic_.broadcast(diagnostic_msgs::msg::DiagnosticStatus::ERROR,"Imu: capture check failed: average angular drift =" + std::to_string(average_rate*180/M_PI) + " deg/sec > " + std::to_string(max_drift_rate_*180/M_PI)+ "deg/sec");
       if(it < 6) {
         captureBias(it+1);
       }
       else {
-        RCLCPP_INFO(this->get_logger(),"Imu: Imposible to capture bias");
+        RCLCPP_ERROR(this->get_logger(),"Imu: Imposible to capture bias");
+        diagnostic_.broadcast(diagnostic_msgs::msg::DiagnosticStatus::ERROR,"Imu: Imposible to capture bias");
         rclcpp::shutdown();
       }
     }
