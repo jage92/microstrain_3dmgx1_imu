@@ -1,7 +1,7 @@
 <launch>
-<node pkg="microstrain_3dmgx1_imu" exec="imu_node_gx1" name="microstrain_3dmgx1_node" output="screen">
+<node pkg="microstrain_3dmgx1_imu" exec="imu_node_gx1" name="microstrain_3dmgx1_node" output="screen" namespace="microstrain_3dmgx1">
      <param name="time_offset" value="0.0"/>
-     <param name="port" value="/dev/ttyUSB0"/>
+     <param name="port" value="/dev/gx1"/>
      <param name="frame_id" value="imu_gx1"/>
      <param name="stab_frame_id" value="stab_imu_gx1"/>
      <param name="base_frame" value="base_gx1"/> <!-- NED or ENU depending of use_enu_frame flag -->
@@ -17,7 +17,7 @@
      <param name="stab_quat_orient" value="false"/>
      <param name="instant_quat_orient" value="false"/>
      <param name="stab_orient_mag_accel_angrate" value="true"/>
-     <param name="instant_orient_mag_accel_angrate" value="false"/> <!-- This case is slower because it is needed 2 readings -->
+     <param name="instant_orient_mag_accel_angrate" value="true"/> <!-- This case is slower because it is needed 2 readings -->
      <param name="stab_euler_angles" value="false"/>
      <param name="instant_euler_angles" value="false"/>
      <param from="$(find-pkg-share microstrain_3dmgx1_imu)/params/params.yaml"/>

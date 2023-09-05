@@ -6,9 +6,9 @@ if(NOT CMAKE_CXX_STANDARD)
   set(CMAKE_CXX_STANDARD 14)
 endif()
 
-if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
-  add_compile_options(-Wall -Wextra -Wpedantic)
-endif()
+#if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+#  add_compile_options(-Wall -Wextra -Wpedantic)
+#endif()
 
 # find dependencies
 find_package(ament_cmake REQUIRED)
@@ -26,7 +26,7 @@ find_package(tf2_geometry_msgs REQUIRED)
 find_package(microstrain_3dmgx1_interfaces REQUIRED)
 
 add_executable(imu_node_gx1
-    src/3dmgx1.cc
+    src/3dmgx1.cpp
     src/imu_node.cpp)
 
 target_include_directories(imu_node_gx1

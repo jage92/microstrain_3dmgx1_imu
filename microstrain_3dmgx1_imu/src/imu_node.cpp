@@ -15,8 +15,7 @@
 #include <tf2/LinearMath/Quaternion.h>
 #include <tf2/LinearMath/Transform.h>
 #include <tf2_ros/transform_broadcaster.h>
-#include <tf2_geometry_msgs/tf2_geometry_msgs.h>
-#include <tf2_geometry_msgs/tf2_geometry_msgs.h>
+#include <tf2_geometry_msgs/tf2_geometry_msgs.hpp>
 #include <geometry_msgs/msg/transform_stamped.hpp>
 
 #include "sensor_msgs/msg/imu.hpp"
@@ -151,17 +150,17 @@ public:
 
   bool slow=false; //! Indicates all instant values are read, so the frecuenzy is 30 hz
 
-//  /*!
-//   * Constructor of the IMU Node. The constructor process the parameters, initualizes the IMU, the
-//   * test object and the diagnostic object.
-//   *
-//   * \brief ImuNode Inializes the node and the imu reader object
-//   */
+  //  /*!
+  //   * Constructor of the IMU Node. The constructor process the parameters, initualizes the IMU, the
+  //   * test object and the diagnostic object.
+  //   *
+  //   * \brief ImuNode Inializes the node and the imu reader object
+  //   */
   ImuNode() : Node("microstrain_3dmgx1_node"),
-  self_test_(get_node_base_interface(), get_node_services_interface(), get_node_logging_interface()),
-  diagnostic_(this),
-  capture_bias_requested_(false),
-  error_count_(0)
+    self_test_(get_node_base_interface(), get_node_services_interface(), get_node_logging_interface()),
+    diagnostic_(this),
+    capture_bias_requested_(false),
+    error_count_(0)
   {
     microstrain_3dmgx1_imu::IMU::cmd cmd_tmp = microstrain_3dmgx1_imu::IMU::NONE;
     microstrain_3dmgx1_imu::IMU::cmd cmd_tmp2 = microstrain_3dmgx1_imu::IMU::NONE;
@@ -289,13 +288,13 @@ public:
     stab_tf_translation = this->get_parameter("stab_tf_translation").get_parameter_value().get<vector<double>>();
 
     this->declare_parameter("orientation_cov",vector<double>({0.0020,  0.0,    0.0,
-                                                            0.0,    1.4908e-6,  0.0,
-                                                            0.0,    0.0,    8.4248e-4}));
+                                                              0.0,    1.4908e-6,  0.0,
+                                                              0.0,    0.0,    8.4248e-4}));
     orientation_cov = this->get_parameter("orientation_cov").get_parameter_value().get<vector<double>>();
 
     this->declare_parameter("stab_orientation_cov",vector<double>({0.0020,  0.0,    0.0,
-                                                            0.0,    1.4908e-6,  0.0,
-                                                            0.0,    0.0,    8.4248e-4}));
+                                                                   0.0,    1.4908e-6,  0.0,
+                                                                   0.0,    0.0,    8.4248e-4}));
     stab_orientation_cov = this->get_parameter("stab_orientation_cov").get_parameter_value().get<vector<double>>();
 
 
@@ -316,8 +315,8 @@ public:
     lin_acc_cov_no_grab = this->get_parameter("lin_acc_cov_no_grab").get_parameter_value().get<vector<double>>();
 
     this->declare_parameter("stab_lin_acc_cov_no_grab",vector<double>({0.000210987265734, 0.0,    0.0,
-                                                                  0.0,    0.000234988106838, 0.0,
-                                                                  0.0,    0.0,    3.1886763565377e-05}));
+                                                                       0.0,    0.000234988106838, 0.0,
+                                                                       0.0,    0.0,    3.1886763565377e-05}));
     stab_lin_acc_cov_no_grab = this->get_parameter("stab_lin_acc_cov_no_grab").get_parameter_value().get<vector<double>>();
 
 
@@ -328,14 +327,14 @@ public:
 
 
     this->declare_parameter("stab_ang_vel_cov",vector<double>({1.05986466329007e-05, 0.0,    0.0,
-                                                              0.0,    8.99776473732564e-06, 0.0,
-                                                              0.0,    0.0,    1.40389011593441e-05}));
+                                                               0.0,    8.99776473732564e-06, 0.0,
+                                                               0.0,    0.0,    1.40389011593441e-05}));
     stab_ang_vel_cov = this->get_parameter("stab_ang_vel_cov").get_parameter_value().get<vector<double>>();
 
 
     this->declare_parameter("stab_lin_acc_cov",vector<double>({0.00013126810827, 0.0,    0.0,
-                             0.0,    0.000167757339186, 0.0,
-                             0.0,    0.0,    1.81007369002871e-07}));
+                                                               0.0,    0.000167757339186, 0.0,
+                                                               0.0,    0.0,    1.81007369002871e-07}));
     stab_lin_acc_cov = this->get_parameter("stab_lin_acc_cov").get_parameter_value().get<vector<double>>();
 
 
@@ -361,7 +360,7 @@ public:
 
     freq_diag_ = std::make_unique<diagnostic_updater::FrequencyStatus>(diagnostic_updater::FrequencyStatusParam(&desired_freq_, &desired_freq_, 0.15));
 
-   
+
     add_offset_serv_ = this->create_service<microstrain_3dmgx1_interfaces::srv::AddOffset>("add_offset", std::bind(&ImuNode::addOffset, this,std::placeholders::_1,std::placeholders::_2));
     capture_bias_serv_ = this->create_service<std_srvs::srv::Empty>("captureBias", std::bind(&ImuNode::calculateBiasCallback,this,std::placeholders::_1,std::placeholders::_2));
     publishTF_serv_ = this->create_service<microstrain_3dmgx1_interfaces::srv::PublishTf>("publish_tf",std::bind(&ImuNode::pubishTFCallback, this,std::placeholders::_1,std::placeholders::_2));
@@ -402,7 +401,7 @@ public:
     calibrateTimer->cancel();
 
     start();
-}
+  }
 
   /**
      * @brief Callback that reads the data stream from de IMU sensor
@@ -430,7 +429,7 @@ public:
         getData(cmd_v[i],NULL,NULL);
       }
     }
-   // diagnostic_.update();
+    // diagnostic_.update();
   }
 
   /*!
@@ -548,7 +547,7 @@ public:
     }
   }
 
- /**
+  /**
    * @brief getID Obtains the sensor information (firmware and serial number)
    * @param output_info if true prints the info
    * @return device info string
@@ -562,7 +561,7 @@ public:
     imu.getSerialNumber(&serial_num);
 
     if (output_info)
-        RCLCPP_INFO(this->get_logger(),"Connected to IMU [%d] with firmware [%s]",serial_num,firmware.c_str());
+      RCLCPP_INFO(this->get_logger(),"Connected to IMU [%d] with firmware [%s]",serial_num,firmware.c_str());
 
     return (boost::format("%d_%s")%serial_num%firmware.c_str()).str();
   }
@@ -592,7 +591,7 @@ public:
     }
   }
 
-   /**
+  /**
    * @brief Temperature Test the IMU temperature
    * @param status node status
    */
@@ -633,7 +632,7 @@ public:
         (stab_euler_pub!=nullptr && stab_euler_pub->get_subscription_count() > 0) ||
         (euler_pub!=nullptr && euler_pub->get_subscription_count() > 0))
 
-        status.summary(diagnostic_msgs::msg::DiagnosticStatus::WARN, "Interruption Text: There were active subscribers.");
+      status.summary(diagnostic_msgs::msg::DiagnosticStatus::WARN, "Interruption Text: There were active subscribers.");
     else
       status.summary(diagnostic_msgs::msg::DiagnosticStatus::OK, "No operation interrupted.");
   }
@@ -660,13 +659,13 @@ public:
   void readIDTest(diagnostic_updater::DiagnosticStatusWrapper& status)
   {
     try {
-       self_test_.setID(getID());
-       status.summary(diagnostic_msgs::msg::DiagnosticStatus::OK, "Read Successfully");
-     }
-     catch(microstrain_3dmgx1_imu::Exception& e) {
-       RCLCPP_ERROR(this->get_logger(),"%s",e.what());
-       status.summary(diagnostic_msgs::msg::DiagnosticStatus::ERROR, "Could not read de IMU ID: "+string(e.what()));
-     }
+      self_test_.setID(getID());
+      status.summary(diagnostic_msgs::msg::DiagnosticStatus::OK, "Read Successfully");
+    }
+    catch(microstrain_3dmgx1_imu::Exception& e) {
+      RCLCPP_ERROR(this->get_logger(),"%s",e.what());
+      status.summary(diagnostic_msgs::msg::DiagnosticStatus::ERROR, "Could not read de IMU ID: "+string(e.what()));
+    }
   }
 
   /**
@@ -693,33 +692,33 @@ public:
      * @param vIn Input vector to be transformed
      * @param vOut Output transformed vector
      */
-    void transformVector(double* vIn,double* vOut){
-      //Transforms has singular problems!!!
-      tf2::Vector3 in,out;
+  void transformVector(double* vIn,double* vOut){
+    //Transforms has singular problems!!!
+    tf2::Vector3 in,out;
 
-      tf2::Quaternion qOut,qIn(vIn[X],vIn[Y],vIn[Z],0.0);
+    tf2::Quaternion qOut,qIn(vIn[X],vIn[Y],vIn[Z],0.0);
 
 
-      qOut=q_rot*qIn*q_rot.inverse();
+    qOut=q_rot*qIn*q_rot.inverse();
 
-      vOut[X] = qOut.x();
-      vOut[Y] = qOut.y();
-      vOut[Z] = qOut.z();
-    }
+    vOut[X] = qOut.x();
+    vOut[Y] = qOut.y();
+    vOut[Z] = qOut.z();
+  }
 
-    /**
+  /**
      * @brief transformQuaternion Transform a Quaternion from the IMU frame (NED) to ENU reference Frame
      * @param qIn Input quaternion
      * @return transformed quaternion
      */
-    tf2::Quaternion transformQuaternion(tf2::Quaternion qIn) {
-      tf2::Quaternion qOut;
+  tf2::Quaternion transformQuaternion(tf2::Quaternion qIn) {
+    tf2::Quaternion qOut;
 
-      qOut=q_rot*qIn*q_rot.inverse();
-      qOut.normalize();
+    qOut=q_rot*qIn*q_rot.inverse();
+    qOut.normalize();
 
-      return qOut;
-    }
+    return qOut;
+  }
 
   /**
    * @brief createImuData Creates the IMU data message
@@ -919,7 +918,7 @@ public:
     return magData;
   }
 
-   /**
+  /**
    * @brief getData Read de data from the IMU and publish it in the corresponding topic
    * @param actual_cmd Imu command of the data to be read
    * @param iD return Imu message to capture the bias of the gyro
@@ -980,9 +979,9 @@ public:
         if(!capturingBias) {
           imu_data_pub_->publish(imuData);
           mag_pub->publish(magData);
-//          m.setRotation(q);
-//          m.getRPY(roll,pitch,yaw);
-//          ROS_INFO("Orientation 1: %lf %lf %lf",roll*180/M_PI,pitch*180/M_PI,yaw*180/M_PI);
+          //          m.setRotation(q);
+          //          m.getRPY(roll,pitch,yaw);
+          //          ROS_INFO("Orientation 1: %lf %lf %lf",roll*180/M_PI,pitch*180/M_PI,yaw*180/M_PI);
         }
 
         break;
@@ -996,9 +995,9 @@ public:
         if(!capturingBias) {
           orientation_pub->publish(quaternion_msg);
           localPublishTF = true;
-//          m.setRotation(q);
-//          m.getRPY(roll,pitch,yaw);
-//          ROS_INFO("Orientation 2: %lf %lf %lf",roll*180/M_PI,pitch*180/M_PI,yaw*180/M_PI);
+          //          m.setRotation(q);
+          //          m.getRPY(roll,pitch,yaw);
+          //          ROS_INFO("Orientation 2: %lf %lf %lf",roll*180/M_PI,pitch*180/M_PI,yaw*180/M_PI);
 
         }
         break;
@@ -1013,9 +1012,9 @@ public:
           stab_orientation_pub->publish(quaternion_msg);
           stab_localPublishTF = true;
 
-//          m.setRotation(q);
-//          m.getRPY(roll,pitch,yaw);
-//          ROS_INFO("Orientation 2: %lf %lf %lf",roll*180/M_PI,pitch*180/M_PI,yaw*180/M_PI);
+          //          m.setRotation(q);
+          //          m.getRPY(roll,pitch,yaw);
+          //          ROS_INFO("Orientation 2: %lf %lf %lf",roll*180/M_PI,pitch*180/M_PI,yaw*180/M_PI);
         }
         break;
       case microstrain_3dmgx1_imu::IMU::CMD_GYRO_QUAT_VECTOR:
@@ -1032,9 +1031,9 @@ public:
           stab_mag_pub->publish(magData);
           stab_localPublishTF = true;
 
-//          m.setRotation(q);
-//          m.getRPY(roll,pitch,yaw);
-//          ROS_INFO("Orientation 3: %lf %lf %lf",roll*180/M_PI,pitch*180/M_PI,yaw*180/M_PI);
+          //          m.setRotation(q);
+          //          m.getRPY(roll,pitch,yaw);
+          //          ROS_INFO("Orientation 3: %lf %lf %lf",roll*180/M_PI,pitch*180/M_PI,yaw*180/M_PI);
         }
 
         break;
@@ -1054,9 +1053,9 @@ public:
           mag_pub->publish(magData);
           localPublishTF = true;
 
-//          m.setRotation(q);
-//          m.getRPY(roll,pitch,yaw);
-//          ROS_INFO("Orientation 3: %lf %lf %lf",roll*180/M_PI,pitch*180/M_PI,yaw*180/M_PI);
+          //          m.setRotation(q);
+          //          m.getRPY(roll,pitch,yaw);
+          //          ROS_INFO("Orientation 3: %lf %lf %lf",roll*180/M_PI,pitch*180/M_PI,yaw*180/M_PI);
 
         }
 
@@ -1088,11 +1087,11 @@ public:
         if(!capturingBias) {
           euler_pub->publish(eulerMsg);
           localPublishTF = true;
-//          ROS_INFO("Orientation 4a: %lf %lf %lf",roll,pitch,yaw);
+          //          ROS_INFO("Orientation 4a: %lf %lf %lf",roll,pitch,yaw);
 
-//          m.setRotation(q);
-//          m.getRPY(roll,pitch,yaw);
-//          ROS_INFO("Orientation 4b: %lf %lf %lf",roll*180/M_PI,pitch*180/M_PI,yaw*180/M_PI);
+          //          m.setRotation(q);
+          //          m.getRPY(roll,pitch,yaw);
+          //          ROS_INFO("Orientation 4b: %lf %lf %lf",roll*180/M_PI,pitch*180/M_PI,yaw*180/M_PI);
         }
 
         break;
@@ -1113,11 +1112,11 @@ public:
           stab_euler_pub->publish(eulerMsg);
           stab_localPublishTF = true;
 
-//          ROS_INFO("Orientation 4a: %lf %lf %lf",roll,pitch,yaw);
+          //          ROS_INFO("Orientation 4a: %lf %lf %lf",roll,pitch,yaw);
 
-//          m.setRotation(q);
-//          m.getRPY(roll,pitch,yaw);
-//          ROS_INFO("Orientation 4b: %lf %lf %lf",roll*180/M_PI,pitch*180/M_PI,yaw*180/M_PI);
+          //          m.setRotation(q);
+          //          m.getRPY(roll,pitch,yaw);
+          //          ROS_INFO("Orientation 4b: %lf %lf %lf",roll*180/M_PI,pitch*180/M_PI,yaw*180/M_PI);
         }
         break;
       default:
@@ -1199,11 +1198,11 @@ public:
 
       status.summary(diagnostic_msgs::msg::DiagnosticStatus::OK, "Data streamed successfully.");
 
-          }
-          catch(microstrain_3dmgx1_imu::Exception& e) {
-            RCLCPP_ERROR(this->get_logger(),"%s",e.what());
-            status.summary(2, "Could not start streaming data: "+string(e.what()));
-          }
+    }
+    catch(microstrain_3dmgx1_imu::Exception& e) {
+      RCLCPP_ERROR(this->get_logger(),"%s",e.what());
+      status.summary(2, "Could not start streaming data: "+string(e.what()));
+    }
   }
 
 
@@ -1291,7 +1290,7 @@ public:
    */
   void deviceStatus(diagnostic_updater::DiagnosticStatusWrapper &status)
   {
- if (running)
+    if (running)
       status.summary(diagnostic_msgs::msg::DiagnosticStatus::OK, "IMU is running");
     else if(capturingBias)
       status.summary(diagnostic_msgs::msg::DiagnosticStatus::OK, "IMU is capturing bias");
@@ -1389,7 +1388,7 @@ public:
     return true;
   }
 
-   /**
+  /**
    * @brief start_calibrate Service to start the magnetometer calibration
    * @param req Request object
    * @param resp Response object
@@ -1433,7 +1432,7 @@ public:
     }
   }
 
-   /**
+  /**
    * @brief stop_calibrate [tipeId: 0/1, typeName: 3D/2D] Service to stop the calibration of de IMU. It receve the type of calibration 3D or 2D.
    * @param req Request object
    * @param resp Response object
@@ -1491,7 +1490,7 @@ public:
     }
   }
 
-    /**
+  /**
    * @brief calculateBias Service to capture bias of the IMU
    * @param req Request object
    * @param resp Response object
@@ -1514,7 +1513,7 @@ public:
     try {
       if(imu.getContinuous())
         imu.stopContinuous();
-      }
+    }
     catch(microstrain_3dmgx1_imu::Exception& e) {
       error_count_++;
       RCLCPP_ERROR(this->get_logger(),"Problem stoping continous mode %s", e.what());
@@ -1546,8 +1545,8 @@ public:
       wallTimer->reset();
 
     try{
-    if(cmd_v.size() == 1 && !imu.getContinuous() && cmd_v[0] != microstrain_3dmgx1_imu::IMU::CMD_INSTANT_GYRO_QUAT_VECTOR)
-      imu.setContinuous(cmd_v[0]);
+      if(cmd_v.size() == 1 && !imu.getContinuous() && cmd_v[0] != microstrain_3dmgx1_imu::IMU::CMD_INSTANT_GYRO_QUAT_VECTOR)
+        imu.setContinuous(cmd_v[0]);
     }
     catch(microstrain_3dmgx1_imu::Exception& e) {
       error_count_++;
@@ -1599,7 +1598,7 @@ public:
   }
 
 
-    /**
+  /**
    * @brief captureBias sets the imu gyro bias and calculate the linear accel (without grabity)
    * @param it Number of attemps. If the capture it is not correct after 6 attempts, the node stops.
    */
