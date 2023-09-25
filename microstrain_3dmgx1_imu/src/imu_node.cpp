@@ -171,7 +171,7 @@ public:
     this->declare_parameter("auto_capture_bias", true);
     auto_capture_bias = this->get_parameter("auto_capture_bias").get_parameter_value().get<bool>();
 
-    this->declare_parameter("port", "/dev/ttyUSB2");
+    this->declare_parameter("port", "/dev/ttyUSB1");
     port = this->get_parameter("port").get_parameter_value().get<string>();
 
     this->declare_parameter("max_drift_rate", 0.0025);
@@ -753,6 +753,7 @@ public:
     std::copy_n(orientation_cov.begin(),orientation_cov.size(),imuData.orientation_covariance.begin());
     std::copy_n(ang_vel_cov.begin(),ang_vel_cov.size(),imuData.angular_velocity_covariance.begin());
     std::copy_n(lin_acc_cov.begin(),lin_acc_cov.size(),imuData.linear_acceleration_covariance.begin());
+    RCLCPP_INFO(this->get_logger(),"%f %f",time/1e9,rclcpp::Clock().now().seconds());
 
     imuData.header.stamp = rclcpp::Time(time);
     imuData.header.frame_id = frameid_;

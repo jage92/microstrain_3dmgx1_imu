@@ -68,7 +68,7 @@ static unsigned long long time_helper()
 /**
  * @brief microstrain_3dmgx1_imu::IMU::IMU Constructor
  */
-microstrain_3dmgx1_imu::IMU::IMU() : fd(-1), continuous(false), gyroGainScale(10000),magGainScale(2000),accelGainScale(8500), offset_ticks(0)
+microstrain_3dmgx1_imu::IMU::IMU() : fd(-1), continuous(false), gyroGainScale(10000),magGainScale(2000),accelGainScale(8500)
 { }
 
 
@@ -86,8 +86,6 @@ microstrain_3dmgx1_imu::IMU::~IMU()
  */
 void microstrain_3dmgx1_imu::IMU::initTime(double fix_off)
 {
-  wraps = 0;
-
   uint8_t cmd[1];
   uint8_t rep[7];
 
@@ -95,13 +93,12 @@ void microstrain_3dmgx1_imu::IMU::initTime(double fix_off)
 
   transact(cmd, sizeof(cmd), rep, sizeof(rep), 1000);
 
-  offset_ticks = convert2int(&rep[3]);
+  last_ticks = convert2int(&rep[3]);
 
   start_time = time_helper();
-  last_ticks = offset_ticks;
 
   // fixed offset
-  fixed_offset = fix_off * 1e9;
+  fixed_offset = fix_off;
 }
 
 /**
@@ -215,17 +212,13 @@ void microstrain_3dmgx1_imu::IMU::setContinuous(cmd command)
 uint64_t microstrain_3dmgx1_imu::IMU::extractTime(uint8_t* addr)
 {
   uint32_t convertFactor = 10000000;//655360;
-  uint32_t ticks = convert2int(addr);
-
-  if (ticks < last_ticks) {
-    wraps += 1;
-  }
+  uint16_t ticks = convert2short(addr);
+  uint64_t time = start_time +  uint64_t((uint16_t(ticks-last_ticks) * convertFactor));
 
   last_ticks = ticks;
+  start_time = time;
 
-  uint64_t all_ticks = ((uint64_t)wraps << 32) - offset_ticks + ticks;
-
-  return  start_time +  uint64_t((all_ticks * convertFactor)) + fixed_offset;
+  return  time + (fixed_offset *1e9);
 }
 
 /**
@@ -810,7 +803,7 @@ bool microstrain_3dmgx1_imu::IMU::getContinuous() const
 
 void microstrain_3dmgx1_imu::IMU::setFixed_offset(double newFixed_offset)
 {
-  fixed_offset = u_int64_t(newFixed_offset * 1e9);
+  fixed_offset = newFixed_offset;
 }
 
 

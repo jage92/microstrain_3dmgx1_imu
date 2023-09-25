@@ -118,15 +118,9 @@ namespace microstrain_3dmgx1_imu
     int accelGainScale;
 
     //! The last number of ticks for computing wraparound
-    uint32_t last_ticks;
+    uint16_t last_ticks;
 
-    //! The number of times the imu has wrapped
-    uint32_t wraps;
-
-    //! The number of ticks the initial offset is off by
-    uint32_t offset_ticks;
-
-    uint64_t fixed_offset;
+    double fixed_offset;
 
     //! The time at which the imu was started
     unsigned long long start_time;
