@@ -15,8 +15,8 @@ imu/raw_data: publishes the raw sensor measures of the acceleration and angular 
 - imu/data_no_grab: publishes the instantaneous sensor measures of the acceleration without gravity component, angular velocity, and orientation.
 - imu/stab_data: publishes the acceleration and angular velocity stabilised with the internal complementary filter of the IMU.
 - stab_mag: publishes the magnetic field stabilised with the internal complementary filter of the IMU.
-- orientation: publishes the instantaneous quaternion that represents the orientation of the ENU reference frame.
-- stab_orientation: publishes the stab quaternion that represents the orientation of the ENU reference frame.
+- orientation: publishes the instantaneous quaternion that represents the orientation of the ENU/NED reference frame.
+- stab_orientation: publishes the stab quaternion that represents the orientation of the ENU/NED reference frame.
 - euler: publishes the instantaneous euler angles (roll, pitch and yaw) in degrees
 - stab_euler: publishes the stabilised euler angles (roll, pitch, and yaw) in degrees
     

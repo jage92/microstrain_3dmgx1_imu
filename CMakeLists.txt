@@ -4,7 +4,16 @@ project(microstrain_3dmgx1_imu)
 ## Find catkin macros and libraries
 ## if COMPONENTS list like find_package(catkin REQUIRED COMPONENTS xyz)
 ## is used, also find other catkin packages
-find_package(catkin REQUIRED COMPONENTS message_generation roscpp sensor_msgs self_test diagnostic_updater tf std_srvs std_msgs)
+find_package(catkin REQUIRED COMPONENTS
+    message_generation
+    roscpp
+    sensor_msgs
+    self_test
+    diagnostic_updater
+    tf
+    std_srvs
+    std_msgs
+)
 
 #find_library(LOG4CXX_LIBRARY log4cxx)
 #if(NOT LOG4CXX_LIBRARY)
@@ -70,10 +79,10 @@ catkin_package(
 include_directories(include ${catkin_INCLUDE_DIRS})
 
 ## Declare a cpp library
-add_library(3dmgx1 src/3dmgx1.cc)
+add_library(3dmgx1 src/3dmgx1.cpp)
 
 ## Declare a cpp executable
-add_executable(imu_node_gx1 src/imu_node.cc)
+add_executable(imu_node_gx1 src/imu_node.cpp)
 target_link_libraries(imu_node_gx1 3dmgx1 ${catkin_LIBRARIES})
 add_dependencies(imu_node_gx1 microstrain_3dmgx1_imu_gencpp)
 

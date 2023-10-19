@@ -1,38 +1,3 @@
-/*
- * Software License Agreement (BSD License)
- *
- *  Microstrain 3DM-Gx1 node
- *  Copyright (c) 2008-2010, Willow Garage, Inc.
- *  All rights reserved.
- *
- *  Redistribution and use in source and binary forms, with or without
- *  modification, are permitted provided that the following conditions
- *  are met:
- *
- *   * Redistributions of source code must retain the above copyright
- *     notice, this list of conditions and the following disclaimer.
- *   * Redistributions in binary form must reproduce the above
- *     copyright notice, this list of conditions and the following
- *     disclaimer in the documentation and/or other materials provided
- *     with the distribution.
- *   * Neither the name of the Willow Garage nor the names of its
- *     contributors may be used to endorse or promote products derived
- *     from this software without specific prior written permission.
- *
- *  THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
- *  "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
- *  LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
- *  FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE
- *  COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
- *  INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING,
- *  BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
- *  LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
- *  CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
- *  LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN
- *  ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
- *  POSSIBILITY OF SUCH DAMAGE.
- */
-
 #include <assert.h>
 #include <math.h>
 #include <iostream>
@@ -83,7 +48,7 @@ public:
 
   //  microstrain_3dmgx1_imu::IMU::cmd cmd;
   std::vector<microstrain_3dmgx1_imu::IMU::cmd> cmd_v; //! List of commands that are being reading from de IMU
-  std::vector<microstrain_3dmgx1_imu::IMU::cmd> cmd_capture_bias; //! List of commands read to calibrate (calculate bias).
+  std::vector<microstrain_3dmgx1_imu::IMU::cmd> cmd_capture_bias; //! List of commands read to calculate bias.
 
 
   self_test::TestRunner self_test_; //! Object to test the IMU
@@ -316,7 +281,7 @@ public:
       tf_translation =  {2.0, 2.0, 0.0};
 
     if(!private_node_handle_.getParam("stab_tf_translation",stab_tf_translation))
-      tf_translation =  {2.0, 1.0, 0.0};
+      stab_tf_translation =  {2.0, 1.0, 0.0};
 
     if(!private_node_handle_.getParam("orientation_cov",orientation_cov))
       orientation_cov =  {0.0020,  0.0,    0.0,
@@ -533,7 +498,10 @@ public:
           capture_bias_requested_ = false;
           auto_capture_bias = false; // No need to do this each time we reopen the device.
         }
-        else if(!calibrated)
+        else {
+          ROS_INFO("Not capturing bias of the IMU sensor.");
+        }
+        if(!calibrated)
         {
           ROS_INFO("Not capturing the bias of the IMU sensor. Use the captureBias service to capture it before use.");
         }
@@ -1361,7 +1329,7 @@ public:
       status.summary(diagnostic_msgs::DiagnosticStatus::OK, "Bias is capturing");
     }
     else
-      status.summary(diagnostic_msgs::DiagnosticStatus::ERROR, "Bias is captured");
+      status.summary(diagnostic_msgs::DiagnosticStatus::ERROR, "Bias is not captured");
   }
 
   /**
@@ -1567,9 +1535,15 @@ public:
     else
       wallTimer.start();
 
-    if(cmd_v.size() == 1 && !imu.getContinuous() && cmd_v[0] != microstrain_3dmgx1_imu::IMU::CMD_INSTANT_GYRO_QUAT_VECTOR)
-      imu.setContinuous(cmd_v[0]);
-
+    try {
+      if(cmd_v.size() == 1 && !imu.getContinuous() && cmd_v[0] != microstrain_3dmgx1_imu::IMU::CMD_INSTANT_GYRO_QUAT_VECTOR)
+        imu.setContinuous(cmd_v[0]);
+    }
+    catch(microstrain_3dmgx1_imu::Exception& e) {
+      error_count_++;
+      ROS_ERROR("Problem starting continous mode %s", e.what());
+      diagnostic_.broadcast(diagnostic_msgs::DiagnosticStatus::WARN,"Problem starting continous mode " + string(e.what()));
+    }
     poll_mode=false;
     private_node_handle_.setParam("poll_mode",poll_mode);
 
@@ -1602,7 +1576,8 @@ public:
     } catch (microstrain_3dmgx1_imu::Exception& e) {
       error_count_++;
       biasCaptured_ = false;
-      ROS_ERROR("Exception thrown while caluting bias of the IMU %s", e.what());
+      ROS_ERROR("Exception thrown while calcuting bias of the IMU %s", e.what());
+      diagnostic_.broadcast(diagnostic_msgs::DiagnosticStatus::ERROR,"Exception thrown while capturing bias of the IMU " + string(e.what()));
       stop();
       if (old_running)
         start(); // Might throw, but we have nothing to lose... Needs restructuring.
@@ -1722,11 +1697,13 @@ public:
     else{
       biasCaptured_ = false;
       ROS_ERROR("Imu: capture check failed: average angular drift = %f deg/sec, average stab angular drift = %f deg/sec, max drift rate %f deg/sec", average_rate*180/M_PI,stab_average_rate*180/M_PI, max_drift_rate_*180/M_PI);
+      diagnostic_.broadcast(diagnostic_msgs::DiagnosticStatus::ERROR,"Imu: capture check failed: average angular drift =" + std::to_string(average_rate*180/M_PI) + " deg/sec > " + std::to_string(max_drift_rate_*180/M_PI)+ "deg/sec");
       if(it < 6) {
         captureBias(it+1);
       }
       else {
         ROS_ERROR("Imu: Imposible to capture bias");
+        diagnostic_.broadcast(diagnostic_msgs::DiagnosticStatus::ERROR,"Imu: Imposible to capture bias");
         ros::shutdown();
       }
     }

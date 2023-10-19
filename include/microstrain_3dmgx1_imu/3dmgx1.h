@@ -1,24 +1,3 @@
-/*
- *  Player - One Hell of a Robot Server
- *  Copyright (C) 2008-2010  Willow Garage
- *                      
- *
- *  This library is free software; you can redistribute it and/or
- *  modify it under the terms of the GNU Lesser General Public
- *  License as published by the Free Software Foundation; either
- *  version 2.1 of the License, or (at your option) any later version.
- *
- *  This library is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- *  Lesser General Public License for more details.
- *
- *  You should have received a copy of the GNU Lesser General Public
- *  License along with this library; if not, write to the Free Software
- *  Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
- */
-
-
 #ifndef MS_3DMGX1_HH
 #define MS_3DMGX1_HH
 
@@ -51,59 +30,8 @@ namespace microstrain_3dmgx1_imu
   DEF_EXCEPTION(CorruptedDataException, Exception);
 
   #undef DEF_EXCEPTION
-
-  //! A class for interfacing to the microstrain 3dmgx1 and inertialink IMUs
-  /*!
-   * Note: This class is unreviewed and unsupported. It may change at any
-   * time without notice.
-   *
-   * Many of the methods within this class may throw an
-   * microstrain_3dmgx1_imu::exception, timeout_exception, or
-   * corrupted_data_exception.
-   *
-   * Before using the IMU, it must be opened via the open_port method.
-   * When finished using, it should be closed via the close_port
-   * method.  Alternatively, close port will get called at
-   * destruction.
-   *
-   * The library is primarily designed to be used in continuous mode,
-   * which is enabled with the set_continuous method, and then serviced
-   * with one of the receive methods.
-   *
-   * Implementation of specific polled message transactions can be
-   * done with the transact method.
-   *
-   * Because the timing related to the USB stack is fairly
-   * non-deterministic, but the IMU is internally known to be clocked
-   * to a 100hz clock, we have wrapped a Kalman filter around calls to
-   * get system time, and the internal imu time.  This is only known
-   * to be reliable when operating in continuous mode, and if init_time
-   * is called shortly prior to beginning to get readings.
-   * 
-   *
-   * Example code:
-   * \code
-   *   microstrain_3dmgx1_imu::IMU imu;
-   *   imu.open_port("/dev/ttyUSB0");
-   *   imu.init_time();
-   *   imu.init_gyros();
-   *   imu.set_continuous(microstrain_3dmgx1_imu::IMU::CMD_ACCEL_ANGRATE_ORIENT);
-   *   while (int i = 0 ; i < 100; i++)
-   *   {
-   *     double accel[3];
-   *     double angrate[3];
-   *     double orientation[9];
-   *     imu.receive_accel_angrate_orientation(&time, accel, angrate, orientation);
-   *   }
-   *   imu.close_port();
-   * \endcode
-   */
   class IMU
   {
-// from C++11, constexpr specifier is requred for double
-//#if __cplusplus > 199711L
-//#define const constexpr
-//#endif
   private:
     //! The file descriptor
     int fd;
@@ -118,15 +46,9 @@ namespace microstrain_3dmgx1_imu
     int accelGainScale;
 
     //! The last number of ticks for computing wraparound
-    uint32_t last_ticks;
+    uint16_t last_ticks;
 
-    //! The number of times the imu has wrapped
-    uint32_t wraps;
-
-    //! The number of ticks the initial offset is off by
-    uint32_t offset_ticks;
-
-    uint64_t fixed_offset;
+    double fixed_offset;
 
     //! The time at which the imu was started
     unsigned long long start_time;
@@ -144,10 +66,6 @@ namespace microstrain_3dmgx1_imu
     int receive(uint8_t command, uint8_t *rep, int rep_len, int timeout = 0);
     int read_with_timeout(int fd, uint8_t *buff, size_t count, int timeout);
 
-
-//#if __cplusplus > 199711L
-//#undef const
-//#endif
 public:
     //! Enumeration of possible IMU commands
     enum cmd {
@@ -174,7 +92,7 @@ public:
       CMD_COLLECT_HARD_IRON_DATA =            0x41,
       CMD_COMPUTE_HARD_IRON_DATA =            0x42,
 
-      CMD_INSTANT_GYRO_QUAT_VECTOR =          0xDD, //NOT exists in the IMU, but it is neccesary to be instant quaternion and vectors together
+      CMD_INSTANT_GYRO_QUAT_VECTOR =          0xDD,
 
       M3D_GYROSCALE_ADDRESS =                 130,
       M3D_ACCELSCALE_ADDRESS =                230,
@@ -194,9 +112,9 @@ public:
     ~IMU();
 
     //! Open the port
-    /*! 
+    /*!
      * This must be done before the imu can be used.
-     * 
+     *
      * \param port_name   A character array containing the name of the port
      *
      */
@@ -205,23 +123,8 @@ public:
     //! Close the port
     void closePort();
 
-    /*--------------------------------------------------------------------------
-     * Sensor communication function prototypes.
-     *--------------------------------------------------------------------------*/
-
     int mapDevice(int, int);
     int sendCommand(int deviceNum, char command, char *response, int responseLength);
-
-    /*--------------------------------------------------------------------------
-     * Sensor Function prototypes
-     *
-     * The following abbreviations are used to shorten
-     * function names:
-     *                Instant = Instantaneous
-     *                Orient  = Orientation
-     *                Stab    = Stabilized
-     *                Quat    = Quaternion
-     *--------------------------------------------------------------------------*/
 
     void initGyroScale(int);
     void getVectors(uint64_t *time, double *mag, double *accel, double *angRate, bool stableOption);

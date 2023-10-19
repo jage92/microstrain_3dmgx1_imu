@@ -1,7 +1,7 @@
 <launch>
  <node pkg="microstrain_3dmgx1_imu" type="imu_node_gx1" name="microstrain_3dmgx1_node" output="screen">
      <param name="time_offset" value="0.0"/>
-     <param name="port"  type="string" value="/dev/ttyUSB1"/>
+     <param name="port"  type="string" value="/dev/gx1"/>
      <param name="frame_id"  type="string" value="imu_gx1"/>
      <param name="stab_frame_id"  type="string" value="stab_imu_gx1"/>
      <param name="base_frame"  type="string" value="base_gx1"/> <!-- NED or ENU depending of use_enu_frame flag -->
@@ -11,15 +11,15 @@
      <param name="use_enu_frame" type="bool" value="false"/> <!-- ENU NOT CORRESPOND WITH THE PRINTED REFERENCE FRAME IN THE IMU -->
      <param name="magnitudeZ" type="int" value="333"/> <!-- If calibrate is 2D type -->
      <param name="poll_mode" type="bool" value="false"/> <!-- True: Pool False: Continuos Mode-->
-     <param name="raw_sensor" type="bool" value="true"/>
-     <param name="stab_mag_accel_angrate" type="bool" value="true"/>
-     <param name="instant_mag_accel_angrate" type="bool" value="true"/>
-     <param name="stab_quat_orient" type="bool" value="true"/>
-     <param name="instant_quat_orient" type="bool" value="true"/>
+     <param name="raw_sensor" type="bool" value="false"/>
+     <param name="stab_mag_accel_angrate" type="bool" value="false"/>
+     <param name="instant_mag_accel_angrate" type="bool" value="false"/>
+     <param name="stab_quat_orient" type="bool" value="false"/>
+     <param name="instant_quat_orient" type="bool" value="false"/>
      <param name="stab_orient_mag_accel_angrate" type="bool" value="true"/>
-     <param name="instant_orient_mag_accel_angrate" type="bool" value="true"/> <!-- This case is slower because it is needed 2 readings -->
+     <param name="instant_orient_mag_accel_angrate" type="bool" value="false"/> <!-- This case is slower because it is needed 2 readings -->
      <param name="stab_euler_angles" type="bool" value="true"/>
-     <param name="instant_euler_angles" type="bool" value="true"/>
+     <param name="instant_euler_angles" type="bool" value="false"/>
      <rosparam command="load" file="$(find microstrain_3dmgx1_imu)/params/params.yaml"/>
   </node>
 </launch>

@@ -1,23 +1,3 @@
-/*
- *  Player - One Hell of a Robot Server
- *  Copyright (C) 2008-20010  Willow Garage
- *                      
- *
- *  This library is free software; you can redistribute it and/or
- *  modify it under the terms of the GNU Lesser General Public
- *  License as published by the Free Software Foundation; either
- *  version 2.1 of the License, or (at your option) any later version.
- *
- *  This library is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- *  Lesser General Public License for more details.
- *
- *  You should have received a copy of the GNU Lesser General Public
- *  License along with this library; if not, write to the Free Software
- *  Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
- */
-
 #include <assert.h>
 #include <errno.h>
 #include <fcntl.h>
@@ -29,22 +9,17 @@
 #include <unistd.h>
 #include <netinet/in.h>
 #include <stdlib.h>
-
 #include <sys/time.h>
-
-//#include <ros/console.h>
-
 #include "microstrain_3dmgx1_imu/3dmgx1.h"
-
 #include "poll.h"
 
 
 //! Macro for throwing an exception with a message
 #define IMU_EXCEPT(except, msg, ...) \
-  { \
-    char buf[1000]; \
-    snprintf(buf, 1000, msg" (in microstrain_3dmgx1_imu::IMU:%s)", ##__VA_ARGS__, __FUNCTION__); \
-    throw except(buf); \
+{ \
+  char buf[1000]; \
+  snprintf(buf, 1000, msg" (in microstrain_3dmgx1_imu::IMU:%s)", ##__VA_ARGS__, __FUNCTION__); \
+  throw except(buf); \
   }
 
 
@@ -57,18 +32,18 @@ static unsigned long long time_helper()
 #if POSIX_TIMERS > 0
   struct timespec curtime;
   clock_gettime(CLOCK_REALTIME, &curtime);
-  return (unsigned long long)(curtime.tv_sec) * 1000000000 + (unsigned long long)(curtime.tv_nsec);  
+  return (unsigned long long)(curtime.tv_sec) * 1000000000 + (unsigned long long)(curtime.tv_nsec);
 #else
   struct timeval timeofday;
   gettimeofday(&timeofday,NULL);
-  return (unsigned long long)(timeofday.tv_sec) * 1000000000 + (unsigned long long)(timeofday.tv_usec) * 1000;  
+  return (unsigned long long)(timeofday.tv_sec) * 1000000000 + (unsigned long long)(timeofday.tv_usec) * 1000;
 #endif
 }
 
 /**
  * @brief microstrain_3dmgx1_imu::IMU::IMU Constructor
  */
-microstrain_3dmgx1_imu::IMU::IMU() : fd(-1), continuous(false), gyroGainScale(10000),magGainScale(2000),accelGainScale(8500), offset_ticks(0)
+microstrain_3dmgx1_imu::IMU::IMU() : fd(-1), continuous(false), gyroGainScale(10000),magGainScale(2000),accelGainScale(8500)
 { }
 
 
@@ -86,8 +61,6 @@ microstrain_3dmgx1_imu::IMU::~IMU()
  */
 void microstrain_3dmgx1_imu::IMU::initTime(double fix_off)
 {
-  wraps = 0;
-
   uint8_t cmd[1];
   uint8_t rep[7];
 
@@ -95,13 +68,12 @@ void microstrain_3dmgx1_imu::IMU::initTime(double fix_off)
 
   transact(cmd, sizeof(cmd), rep, sizeof(rep), 1000);
 
-  offset_ticks = convert2int(&rep[3]);
+  last_ticks = convert2int(&rep[3]);
 
   start_time = time_helper();
-  last_ticks = offset_ticks;
 
   // fixed offset
-  fixed_offset = fix_off * 1e9;
+  fixed_offset = fix_off;
 }
 
 /**
@@ -119,12 +91,12 @@ void microstrain_3dmgx1_imu::IMU::openPort(const char *port_name)
     const char *extra_msg = "";
     switch (errno)
     {
-      case EACCES:
-        extra_msg = "You probably don't have premission to open the port for reading and writing.";
-        break;
-      case ENOENT:
-        extra_msg = "The requested port does not exist. Is the IMU connected? Was the port name misspelled?";
-        break;
+    case EACCES:
+      extra_msg = "You probably don't have premission to open the port for reading and writing.";
+      break;
+    case ENOENT:
+      extra_msg = "The requested port does not exist. Is the IMU connected? Was the port name misspelled?";
+      break;
     }
 
     IMU_EXCEPT(microstrain_3dmgx1_imu::Exception, "Unable to open serial port [%s]. %s. %s", port_name, strerror(errno), extra_msg);
@@ -215,17 +187,13 @@ void microstrain_3dmgx1_imu::IMU::setContinuous(cmd command)
 uint64_t microstrain_3dmgx1_imu::IMU::extractTime(uint8_t* addr)
 {
   uint32_t convertFactor = 10000000;//655360;
-  uint32_t ticks = convert2int(addr);
-
-  if (ticks < last_ticks) {
-    wraps += 1;
-  }
+  uint16_t ticks = convert2short(addr);
+  uint64_t time = start_time +  uint64_t((uint16_t(ticks-last_ticks) * convertFactor));
 
   last_ticks = ticks;
+  start_time = time;
 
-  uint64_t all_ticks = ((uint64_t)wraps << 32) - offset_ticks + ticks;
-
-  return  start_time +  uint64_t((all_ticks * convertFactor)) + fixed_offset;
+  return  time + (fixed_offset *1e9);
 }
 
 /**
@@ -248,42 +216,42 @@ void microstrain_3dmgx1_imu::IMU::closePort()
  * @brief microstrain_3dmgx1_imu::IMU::getScales Read from the EEPROM the scaled constants to calculate the IMU measures from the read data
  */
 void microstrain_3dmgx1_imu::IMU::getScales() {
-    short address, value;
+  short address, value;
 
-    address = M3D_GYROSCALE_ADDRESS;
-    getEEPROMValue(address, &value);
-    gyroGainScale = value;
+  address = M3D_GYROSCALE_ADDRESS;
+  getEEPROMValue(address, &value);
+  gyroGainScale = value;
 
-    address = M3D_ACCELSCALE_ADDRESS;
-    getEEPROMValue(address, &value);
-    accelGainScale = value;
+  address = M3D_ACCELSCALE_ADDRESS;
+  getEEPROMValue(address, &value);
+  accelGainScale = value;
 
-    address = M3D_MAGSCALE_ADDRESS;
-    getEEPROMValue(address, &value);
-    magGainScale = value;
+  address = M3D_MAGSCALE_ADDRESS;
+  getEEPROMValue(address, &value);
+  magGainScale = value;
 }
 
 /**
  * @brief microstrain_3dmgx1_imu::IMU::configureCalculationCycle Configure the IMU to get data to the rate of 100Hz for each message
  */
 void microstrain_3dmgx1_imu::IMU::configureCalculationCycle() {
-    short address, value;
+  short address, value;
 
-    address = M3D_CALC_CYCLE_1_ADDRESS;
-    value = 4;
-    setEEPROMValue(address, value);
+  address = M3D_CALC_CYCLE_1_ADDRESS;
+  value = 4;
+  setEEPROMValue(address, value);
 
-    address = M3D_CALC_CYCLE_2_ADDRESS;
-    value = 10;
-    setEEPROMValue(address, value);
+  address = M3D_CALC_CYCLE_2_ADDRESS;
+  value = 10;
+  setEEPROMValue(address, value);
 
-    address = M3D_CALC_CYCLE_3_ADDRESS;
-    value = 250;
-    setEEPROMValue(address, value);
+  address = M3D_CALC_CYCLE_3_ADDRESS;
+  value = 250;
+  setEEPROMValue(address, value);
 
-    address = M3D_CALC_CYCLE_4_ADDRESS;
-    value = 10;
-    setEEPROMValue(address, value);
+  address = M3D_CALC_CYCLE_4_ADDRESS;
+  value = 10;
+  setEEPROMValue(address, value);
 }
 
 /**
@@ -291,14 +259,14 @@ void microstrain_3dmgx1_imu::IMU::configureCalculationCycle() {
  * @param serialNum seral number returned
  */
 void microstrain_3dmgx1_imu::IMU::getSerialNumber(int *serialNum) {
-    uint8_t cmd[1];
-    uint8_t  rep[5];
+  uint8_t cmd[1];
+  uint8_t  rep[5];
 
-    cmd[0] = CMD_SERIAL_NUMBER;
+  cmd[0] = CMD_SERIAL_NUMBER;
 
-    transact(cmd, sizeof(cmd), rep, sizeof(rep), 1000);
+  transact(cmd, sizeof(cmd), rep, sizeof(rep), 1000);
 
-    *serialNum = convert2int(&rep[1]);
+  *serialNum = convert2int(&rep[1]);
 }
 
 /**
@@ -309,24 +277,24 @@ void microstrain_3dmgx1_imu::IMU::getSerialNumber(int *serialNum) {
  * @param offset magnetic offset data calculate after calibration
  */
 void microstrain_3dmgx1_imu::IMU::computeHardIronData(uint8_t calibrationType, int magnitudeZ, uint64_t *time, double *offset) {
-    uint8_t cmd[6];
-    uint8_t  rep[11];
-    uint16_t mZ = uint16_t(magnitudeZ);
-    int i;
+  uint8_t cmd[6];
+  uint8_t  rep[11];
+  uint16_t mZ = uint16_t(magnitudeZ);
+  int i;
 
-    cmd[0] = CMD_COMPUTE_HARD_IRON_DATA;
-    cmd[1] = 0x71;
-    cmd[2] = 0x3E;
-    cmd[3]= calibrationType;
-    cmd[4] = mZ >> 8;
-    cmd[5] = mZ;
+  cmd[0] = CMD_COMPUTE_HARD_IRON_DATA;
+  cmd[1] = 0x71;
+  cmd[2] = 0x3E;
+  cmd[3]= calibrationType;
+  cmd[4] = mZ >> 8;
+  cmd[5] = mZ;
 
-    transact(cmd, sizeof(cmd), rep, sizeof(rep), 1000);
+  transact(cmd, sizeof(cmd), rep, sizeof(rep), 1000);
 
-    for (i=0; i<3; i++)
-      offset[i] = double(convert2int(&rep[1 + i*2])/(COMMON_SCALE_CONSTANT/magGainScale));
+  for (i=0; i<3; i++)
+    offset[i] = double(convert2int(&rep[1 + i*2])/(COMMON_SCALE_CONSTANT/magGainScale));
 
-    *time  = extractTime(&rep[7]);
+  *time  = extractTime(&rep[7]);
 }
 
 /**
@@ -337,20 +305,20 @@ void microstrain_3dmgx1_imu::IMU::computeHardIronData(uint8_t calibrationType, i
  * @param min minimum data
  */
 void microstrain_3dmgx1_imu::IMU::collectHardIronData(uint64_t *time, double *mag,double *max,double *min) {
-    uint8_t cmd[1];
-    uint8_t  rep[23];
-    int i=0;
+  uint8_t cmd[1];
+  uint8_t  rep[23];
+  int i=0;
 
-    cmd[0] = CMD_COLLECT_HARD_IRON_DATA;
+  cmd[0] = CMD_COLLECT_HARD_IRON_DATA;
 
-    transact(cmd, sizeof(cmd), rep, sizeof(rep), 1000);
+  transact(cmd, sizeof(cmd), rep, sizeof(rep), 1000);
 
-    for (i=0; i<3; i++) {
-        mag[i] = double(convert2int(&rep[1 + i*2])/(COMMON_SCALE_CONSTANT/magGainScale));
-        min[i] = double(convert2int(&rep[7 + i*2])/(COMMON_SCALE_CONSTANT/magGainScale));
-        max[i] = double(convert2int(&rep[13+ i*2])/(COMMON_SCALE_CONSTANT/magGainScale));
-    }
-    *time  = extractTime(&rep[19]);
+  for (i=0; i<3; i++) {
+    mag[i] = double(convert2int(&rep[1 + i*2])/(COMMON_SCALE_CONSTANT/magGainScale));
+    min[i] = double(convert2int(&rep[7 + i*2])/(COMMON_SCALE_CONSTANT/magGainScale));
+    max[i] = double(convert2int(&rep[13+ i*2])/(COMMON_SCALE_CONSTANT/magGainScale));
+  }
+  *time  = extractTime(&rep[19]);
 
 
 }
@@ -359,14 +327,14 @@ void microstrain_3dmgx1_imu::IMU::collectHardIronData(uint64_t *time, double *ma
  * @brief microstrain_3dmgx1_imu::IMU::initializeMagCalibration Clean the hard iron offsets to start a new magnetometer calibration
  */
 void microstrain_3dmgx1_imu::IMU::initializeMagCalibration() {
-    uint8_t cmd[3];
-    uint8_t  rep[5];
+  uint8_t cmd[3];
+  uint8_t  rep[5];
 
-    cmd[0] = CMD_INITIALIZE_HARD_IRON_CALIBRATION;
-    cmd[1] = 0x71;
-    cmd[2] = 0x3E;
+  cmd[0] = CMD_INITIALIZE_HARD_IRON_CALIBRATION;
+  cmd[1] = 0x71;
+  cmd[2] = 0x3E;
 
-    transact(cmd, sizeof(cmd), rep, sizeof(rep), 1000);
+  transact(cmd, sizeof(cmd), rep, sizeof(rep), 1000);
 }
 
 /**
@@ -374,25 +342,25 @@ void microstrain_3dmgx1_imu::IMU::initializeMagCalibration() {
  * @param firmware firmware version read
  */
 void microstrain_3dmgx1_imu::IMU::getFirmwareVersion(std::string *firmware) {
-    uint8_t cmd[1];
-    uint8_t  rep[5];
-    int firmwareNum;
-    int majorNum, minorNum, buildNum;
+  uint8_t cmd[1];
+  uint8_t  rep[5];
+  int firmwareNum;
+  int majorNum, minorNum, buildNum;
 
 
-    cmd[0] = CMD_FIRWARE_VERSION;
-    transact(cmd, sizeof(cmd), rep, sizeof(rep), 1000);
+  cmd[0] = CMD_FIRWARE_VERSION;
+  transact(cmd, sizeof(cmd), rep, sizeof(rep), 1000);
 
-    firmwareNum = convert2int(&rep[1]);
+  firmwareNum = convert2int(&rep[1]);
 
-    if (firmwareNum > 0) {
-        /* format for firmware number is #.#.## */
-        majorNum = firmwareNum / 1000;
-        minorNum = (firmwareNum % 1000) / 100;
-        buildNum = firmwareNum % 100;
-        //sprintf(firmware, "%d.%d.%d", majorNum, minorNum, buildNum);
-        *firmware = std::to_string(majorNum)+"."+std::to_string(minorNum)+"."+std::to_string(buildNum);
-    }
+  if (firmwareNum > 0) {
+    /* format for firmware number is #.#.## */
+    majorNum = firmwareNum / 1000;
+    minorNum = (firmwareNum % 1000) / 100;
+    buildNum = firmwareNum % 100;
+    //sprintf(firmware, "%d.%d.%d", majorNum, minorNum, buildNum);
+    *firmware = std::to_string(majorNum)+"."+std::to_string(minorNum)+"."+std::to_string(buildNum);
+  }
 }
 
 /**
@@ -400,11 +368,11 @@ void microstrain_3dmgx1_imu::IMU::getFirmwareVersion(std::string *firmware) {
  * @param temp temperature read.
  */
 void microstrain_3dmgx1_imu::IMU::getTemperature(double *temp) {
-    uint8_t  rep[7];
-    double convertFactor = 5.0/65536.0;
+  uint8_t  rep[7];
+  double convertFactor = 5.0/65536.0;
 
-    receive(CMD_TEMPERATURE, rep, sizeof(rep), 1000);
-    *temp = (double(convert2int(&rep[1])* convertFactor)-0.5)*100.0;
+  receive(CMD_TEMPERATURE, rep, sizeof(rep), 1000);
+  *temp = (double(convert2int(&rep[1])* convertFactor)-0.5)*100.0;
 }
 
 /**
@@ -415,19 +383,19 @@ void microstrain_3dmgx1_imu::IMU::getTemperature(double *temp) {
  * @param angRate angular velocity components
  */
 void microstrain_3dmgx1_imu::IMU::getRawSensorOutput(uint64_t *time, double *mag, double *accel, double *angRate) {
-    uint8_t cmd[1];
-    uint8_t rep[23];    
-    int i;
+  uint8_t cmd[1];
+  uint8_t rep[23];
+  int i;
 
-    receive(CMD_RAW_SENSOR, rep, sizeof(rep), 1000);
+  receive(CMD_RAW_SENSOR, rep, sizeof(rep), 1000);
 
-    for (i=0; i<3; i++) {
-        mag[i]     = double(convert2int(&rep[1 + i*2]));
-        accel[i]   = double(convert2int(&rep[7 + i*2]));
-        angRate[i] = double(convert2int(&rep[13+ i*2]));
-        //time
-    }
-    *time  = extractTime(&rep[19]);
+  for (i=0; i<3; i++) {
+    mag[i]     = double(convert2int(&rep[1 + i*2]));
+    accel[i]   = double(convert2int(&rep[7 + i*2]));
+    angRate[i] = double(convert2int(&rep[13+ i*2]));
+    //time
+  }
+  *time  = extractTime(&rep[19]);
 }
 
 /**
@@ -440,24 +408,24 @@ void microstrain_3dmgx1_imu::IMU::getRawSensorOutput(uint64_t *time, double *mag
  */
 void microstrain_3dmgx1_imu::IMU::getVectors(uint64_t *time, double *mag, double *accel, double *angRate, bool stableOption) {
 
-    uint8_t cmd;
-    uint8_t rep[23];
+  uint8_t cmd;
+  uint8_t rep[23];
 
-    int i;
+  int i;
 
-    if (!stableOption)
-        cmd = CMD_INSTANT_VECTOR;
-    else
-        cmd = CMD_GYRO_VECTOR;
+  if (!stableOption)
+    cmd = CMD_INSTANT_VECTOR;
+  else
+    cmd = CMD_GYRO_VECTOR;
 
-    receive(cmd, rep, sizeof(rep), 1000);
+  receive(cmd, rep, sizeof(rep), 1000);
 
-    for (i=0; i<3; i++) {
-        mag[i]     = double(convert2short(&rep[1 + i*2])/(COMMON_SCALE_CONSTANT/magGainScale));
-        accel[i]   = double(convert2short(&rep[7 + i*2])/(COMMON_SCALE_CONSTANT/accelGainScale))*9.81;
-        angRate[i] = double(convert2short(&rep[13+ i*2])/(COMMON_SCALE_CONSTANT/gyroGainScale));
-    }
-    *time  = extractTime(&rep[19]);
+  for (i=0; i<3; i++) {
+    mag[i]     = double(convert2short(&rep[1 + i*2])/(COMMON_SCALE_CONSTANT/magGainScale));
+    accel[i]   = double(convert2short(&rep[7 + i*2])/(COMMON_SCALE_CONSTANT/accelGainScale))*9.81;
+    angRate[i] = double(convert2short(&rep[13+ i*2])/(COMMON_SCALE_CONSTANT/gyroGainScale));
+  }
+  *time  = extractTime(&rep[19]);
 }
 
 /**
@@ -467,34 +435,34 @@ void microstrain_3dmgx1_imu::IMU::getVectors(uint64_t *time, double *mag, double
  * @param stableOption true if the read data is stabized and false if it is instantaneous
  */
 void microstrain_3dmgx1_imu::IMU::getQuaternions(uint64_t *time, double *q, int stableOption) {
-    uint8_t cmd;
-    uint8_t  rep[13];
-    int i;
+  uint8_t cmd;
+  uint8_t  rep[13];
+  int i;
 
-    if (!stableOption)
-        cmd = CMD_INSTANT_QUAT;
-    else
-        cmd = CMD_GYRO_QUAT;
+  if (!stableOption)
+    cmd = CMD_INSTANT_QUAT;
+  else
+    cmd = CMD_GYRO_QUAT;
 
-    receive(cmd, rep, sizeof(rep), 1000);
+  receive(cmd, rep, sizeof(rep), 1000);
 
-    for (i=0; i<4; i++) {
-        q[i] = double(convert2short(&rep[1 + i*2])/GYRO_SCALE_CONSTANT);
-    }
-    *time  = extractTime(&rep[9]);
+  for (i=0; i<4; i++) {
+    q[i] = double(convert2short(&rep[1 + i*2])/GYRO_SCALE_CONSTANT);
+  }
+  *time  = extractTime(&rep[9]);
 }
 
 /**
  * @brief microstrain_3dmgx1_imu::IMU::captureGyroBias clean the gyro bias that the IMU captures automaticaly
  */
 void microstrain_3dmgx1_imu::IMU::captureGyroBias() {
-    uint8_t cmd[1];
-    uint8_t  rep[5];
+  uint8_t cmd[1];
+  uint8_t  rep[5];
 
 
-   cmd[0] = CMD_CAPTURE_GYRO_BIAS;
+  cmd[0] = CMD_CAPTURE_GYRO_BIAS;
 
-   transact(cmd, sizeof(cmd), rep, sizeof(rep), 30000);
+  transact(cmd, sizeof(cmd), rep, sizeof(rep), 30000);
 }
 
 /**
@@ -504,24 +472,24 @@ void microstrain_3dmgx1_imu::IMU::captureGyroBias() {
  * @param stableOption true if the read data is stabized and false if it is instantaneous
  */
 void microstrain_3dmgx1_imu::IMU::getOrientMatrix(uint64_t *time, double **mx, int stableOption) {
-    uint8_t cmd;
-    uint8_t  rep[23];
-    int i, j;
+  uint8_t cmd;
+  uint8_t  rep[23];
+  int i, j;
 
 
-    if (!stableOption)
-        cmd = CMD_INSTANT_OR_MATRIX;
-    else
-        cmd = CMD_GYRO_OR_MATRIX;
+  if (!stableOption)
+    cmd = CMD_INSTANT_OR_MATRIX;
+  else
+    cmd = CMD_GYRO_OR_MATRIX;
 
-    receive(cmd, rep, sizeof(rep), 1000);
+  receive(cmd, rep, sizeof(rep), 1000);
 
-    for (i=0; i<3; i++) {
-        for (j=0;j<3;j++) {
-            mx[i][j] = double(convert2short(&rep[1+2*(j*3+i)])/GYRO_SCALE_CONSTANT);
-        }
+  for (i=0; i<3; i++) {
+    for (j=0;j<3;j++) {
+      mx[i][j] = double(convert2short(&rep[1+2*(j*3+i)])/GYRO_SCALE_CONSTANT);
     }
-    *time  = extractTime(&rep[19]);
+  }
+  *time  = extractTime(&rep[19]);
 }
 
 /**
@@ -535,31 +503,31 @@ void microstrain_3dmgx1_imu::IMU::getOrientMatrix(uint64_t *time, double **mx, i
  */
 void microstrain_3dmgx1_imu::IMU::getGyroStabQuatVectors(uint64_t *time, double *q, double *mag, double *accel, double *angRate,bool stableOption) {
 
-    uint8_t cmd;
-    uint8_t  rep[31];
+  uint8_t cmd;
+  uint8_t  rep[31];
 
-    int i;
+  int i;
 
-    if (!stableOption)
-        cmd = CMD_GYRO_QUAT_INSTANT_VECTOR;
-    else
-        cmd = CMD_GYRO_QUAT_VECTOR;
+  if (!stableOption)
+    cmd = CMD_GYRO_QUAT_INSTANT_VECTOR;
+  else
+    cmd = CMD_GYRO_QUAT_VECTOR;
 
-    receive(cmd, rep, sizeof(rep), 1000);
+  receive(cmd, rep, sizeof(rep), 1000);
 
 
-    /* quaternion data */
-    for (i=0; i<4; i++) {
-        q[i] = double(convert2short(&rep[1 + i*2])/GYRO_SCALE_CONSTANT);
-    }
+  /* quaternion data */
+  for (i=0; i<4; i++) {
+    q[i] = double(convert2short(&rep[1 + i*2])/GYRO_SCALE_CONSTANT);
+  }
 
-    /* vector data */
-    for (i=0; i<3; i++) {
-        mag[i]     = double(convert2short(&rep[9 + i*2])/(COMMON_SCALE_CONSTANT/magGainScale));
-        accel[i]   = double(convert2short(&rep[15+ i*2])/(COMMON_SCALE_CONSTANT/accelGainScale))*9.81;
-        angRate[i] = double(convert2short(&rep[21+ i*2])/(COMMON_SCALE_CONSTANT/gyroGainScale));
-    }
-    *time  = extractTime(&rep[27]);
+  /* vector data */
+  for (i=0; i<3; i++) {
+    mag[i]     = double(convert2short(&rep[9 + i*2])/(COMMON_SCALE_CONSTANT/magGainScale));
+    accel[i]   = double(convert2short(&rep[15+ i*2])/(COMMON_SCALE_CONSTANT/accelGainScale))*9.81;
+    angRate[i] = double(convert2short(&rep[21+ i*2])/(COMMON_SCALE_CONSTANT/gyroGainScale));
+  }
+  *time  = extractTime(&rep[27]);
 }
 
 /**
@@ -571,21 +539,21 @@ void microstrain_3dmgx1_imu::IMU::getGyroStabQuatVectors(uint64_t *time, double 
  * @param stableOption true if the read data is stabized and false if it is instantaneous
  */
 void microstrain_3dmgx1_imu::IMU::getEulerAngles(uint64_t *time, double *pitch, double *roll, double *yaw, bool stableOption) {
-    uint8_t cmd;
-    uint8_t  rep[11];
-    double convertFactor = (360.0/65536.0);
+  uint8_t cmd;
+  uint8_t  rep[11];
+  double convertFactor = (360.0/65536.0);
 
-    if (!stableOption)
-        cmd = CMD_INSTANT_EULER;
-    else
-        cmd = CMD_GYRO_EULER;
+  if (!stableOption)
+    cmd = CMD_INSTANT_EULER;
+  else
+    cmd = CMD_GYRO_EULER;
 
-    receive(cmd, rep, sizeof(rep), 1000);
+  receive(cmd, rep, sizeof(rep), 1000);
 
-    *roll  = double(convert2short(&rep[1]) * convertFactor);
-    *pitch = double(convert2short(&rep[3]) * convertFactor);
-    *yaw   = double(convert2short(&rep[5]) * convertFactor);
-    *time  = extractTime(&rep[7]);
+  *roll  = double(convert2short(&rep[1]) * convertFactor);
+  *pitch = double(convert2short(&rep[3]) * convertFactor);
+  *yaw   = double(convert2short(&rep[5]) * convertFactor);
+  *time  = extractTime(&rep[7]);
 }
 
 /**
@@ -594,24 +562,24 @@ void microstrain_3dmgx1_imu::IMU::getEulerAngles(uint64_t *time, double *pitch, 
  * @param value value read
  */
 void microstrain_3dmgx1_imu::IMU::getEEPROMValue(uint8_t address, short *value) {
-    uint8_t cmdBuffer[3];
-    uint8_t dataBuffer[7];
+  uint8_t cmdBuffer[3];
+  uint8_t dataBuffer[7];
 
-    /* check the address range - only 256 locations permitted. */
-    if (address <0 || address > 255) {
-      IMU_EXCEPT(microstrain_3dmgx1_imu::CorruptedDataException, "invalid address");
-    }
+  /* check the address range - only 256 locations permitted. */
+  if (address <0 || address > 255) {
+    IMU_EXCEPT(microstrain_3dmgx1_imu::CorruptedDataException, "invalid address");
+  }
 
-    /* command requires an address */
-    cmdBuffer[0] = CMD_SEND_EEPROM;
-    cmdBuffer[1] = address >> 8;
-    cmdBuffer[2] = address;
+  /* command requires an address */
+  cmdBuffer[0] = CMD_SEND_EEPROM;
+  cmdBuffer[1] = address >> 8;
+  cmdBuffer[2] = address;
 
 
-    transact(cmdBuffer, sizeof(cmdBuffer), dataBuffer, sizeof(dataBuffer), 1000);
+  transact(cmdBuffer, sizeof(cmdBuffer), dataBuffer, sizeof(dataBuffer), 1000);
 
-    extractTime(&dataBuffer[3]);
-    *value = convert2short(&dataBuffer[1]);
+  extractTime(&dataBuffer[3]);
+  *value = convert2short(&dataBuffer[1]);
 }
 
 /**
@@ -620,28 +588,28 @@ void microstrain_3dmgx1_imu::IMU::getEEPROMValue(uint8_t address, short *value) 
  * @param value value to write
  */
 void microstrain_3dmgx1_imu::IMU::setEEPROMValue(uint8_t address, short value) {
-    short valueCheck;
-    uint8_t cmdBuffer[7];
-    uint8_t dataBuffer[7];
+  short valueCheck;
+  uint8_t cmdBuffer[7];
+  uint8_t dataBuffer[7];
 
-    /* check the address range - only 256 locations permitted. */
-    if (address <0 || address > 255) {
-        IMU_EXCEPT(microstrain_3dmgx1_imu::CorruptedDataException, "invalid address");
-    }
+  /* check the address range - only 256 locations permitted. */
+  if (address <0 || address > 255) {
+    IMU_EXCEPT(microstrain_3dmgx1_imu::CorruptedDataException, "invalid address");
+  }
 
-    /* command buffer */
-    cmdBuffer[0] = CMD_PROG_EEPROM;
-    cmdBuffer[1] = 0x71;
-    cmdBuffer[2] = address >> 8;
-    cmdBuffer[3] = address;
-    cmdBuffer[4] = value >> 8;
-    cmdBuffer[5] =  value;
-    cmdBuffer[6] = 0xAA;  /* end of buffer */
+  /* command buffer */
+  cmdBuffer[0] = CMD_PROG_EEPROM;
+  cmdBuffer[1] = 0x71;
+  cmdBuffer[2] = address >> 8;
+  cmdBuffer[3] = address;
+  cmdBuffer[4] = value >> 8;
+  cmdBuffer[5] =  value;
+  cmdBuffer[6] = 0xAA;  /* end of buffer */
 
-    transact(cmdBuffer, sizeof(cmdBuffer), dataBuffer, sizeof(dataBuffer), 1000);
+  transact(cmdBuffer, sizeof(cmdBuffer), dataBuffer, sizeof(dataBuffer), 1000);
 
-    valueCheck = convert2short(&dataBuffer[1]);
-    extractTime(&dataBuffer[3]);
+  valueCheck = convert2short(&dataBuffer[1]);
+  extractTime(&dataBuffer[3]);
 
 }
 
@@ -687,7 +655,7 @@ int microstrain_3dmgx1_imu::IMU::read_with_timeout(int fd, uint8_t *buff, size_t
   struct pollfd ufd[1];
   ufd[0].fd = fd;
   ufd[0].events = POLLIN;
-//  timeout=0;
+  //  timeout=0;
   if (timeout == 0)
     timeout = -1; // For compatibility with former behavior, 0 means no timeout. For poll, negative means no timeout.
 
@@ -810,7 +778,5 @@ bool microstrain_3dmgx1_imu::IMU::getContinuous() const
 
 void microstrain_3dmgx1_imu::IMU::setFixed_offset(double newFixed_offset)
 {
-  fixed_offset = u_int64_t(newFixed_offset * 1e9);
+  fixed_offset = newFixed_offset;
 }
-
-
